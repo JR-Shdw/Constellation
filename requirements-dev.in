@@ -1,0 +1,18 @@
+# Dev/test/lint tooling — supply-chain hardened (SLSA).
+#
+# Versions pinned to the set verified clean by pip-audit on 2026-06-14.
+# Compile to a hash-locked lockfile with:
+#   pip-compile --generate-hashes --output-file=requirements-dev.txt requirements-dev.in
+# Then every install uses `pip install --require-hashes -r requirements-dev.txt`,
+# so a tampered or account-takeover release can't be substituted.
+#
+# ruff + detect-secrets kept in lockstep with versions.env (CI parity).
+pytest==9.1.0
+pytest-asyncio==1.4.0
+pytest-cov==7.1.0
+pytest-timeout==2.4.0
+anyio==4.13.0
+ruff==0.15.13
+bandit==1.9.4
+pip-audit==2.10.1
+detect-secrets==1.5.0

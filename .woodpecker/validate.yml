@@ -1,0 +1,369 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2024-2026 shdw <contact@resurgamus.com>
+---
+# Woodpecker pipeline: validate CMDB
+# Lint, SAST, dependency audit, secrets scan, tests, compose validation
+# NOTE: $$ escapes Woodpecker substitution -> shell receives $
+#
+# Optimized: lint+SAST+audit merged in one step (single pip install),
+# tests in a separate step with pip cache volume.
+
+when:
+  - event: push
+  - event: pull_request
+
+labels:
+  host: vega
+
+services:
+  - name: postgres-test
+    image: postgres:18-trixie
+    environment:
+      POSTGRES_DB: cmdb_test
+      POSTGRES_USER: cmdb_test
+      POSTGRES_PASSWORD: cmdb_test
+
+steps:
+  # ------------------------------------------------------------------
+  # 1. Lint + SAST + audit + secrets (single container, one pip install)
+  # ------------------------------------------------------------------
+  - name: lint-and-sast
+    image: python:3.12-slim
+    commands:
+      # SLSA: pin pip to the CVE-fixed release, then install ONLY hash-verified
+      # tooling (ruff/bandit/pip-audit/detect-secrets, pinned in requirements-dev.txt
+      # and kept in lockstep with versions.env). A tampered PyPI release can't slip in.
+      - pip install --no-cache-dir "pip==26.1.2"
+      - pip install --no-cache-dir --require-hashes -r requirements-dev.txt
+      - apt-get update -qq >/dev/null && apt-get install -qq -y git >/dev/null
+      - git config --global --add safe.directory "$$CI_WORKSPACE"
+      # Lint API
+      - echo "[validate] Linting API..."
+      - ruff check api/
+      - ruff format --check api/
+      - echo "[OK] API lint passed"
+      # Lint sync scripts
+      - ruff check tools/sync_wazuh.py tools/sync_opencve.py tools/sync_woodpecker.py
+      - echo "[OK] Sync scripts lint passed"
+      # Bandit SAST
+      - echo "[validate] Running Bandit SAST..."
+      - |
+        bandit -r api/ \
+          -s B101 \
+          -f json -o /tmp/bandit.json || true
+        high=$$(python3 -c "import json; r=json.load(open('/tmp/bandit.json')); print(sum(1 for i in r.get('results',[]) if i['issue_severity']=='HIGH'))")
+        echo "[bandit] HIGH: $$high"
+        if [ "$$high" -gt 0 ]; then
+          echo "[FAIL] Bandit found HIGH severity issues:"
+          python3 -c "
+        import json
+        r = json.load(open('/tmp/bandit.json'))
+        for i in r.get('results', []):
+            if i['issue_severity'] == 'HIGH':
+                print(f\"  {i['filename']}:{i['line_number']} — {i['issue_text']} [{i['test_id']}]\")
+        "
+          exit 1
+        fi
+        echo "[OK] No HIGH severity issues"
+      # Dependency audit
+      - echo "[validate] Auditing dependencies..."
+      - |
+        pip-audit -r api/requirements.lock --format json --output /tmp/audit.json 2>/dev/null || true
+        if [ -f /tmp/audit.json ]; then
+          critical=$$(python3 -c "
+        import json
+        r = json.load(open('/tmp/audit.json'))
+        count = 0
+        for d in r.get('dependencies', []):
+            for v in d.get('vulns', []):
+                if v.get('fix_versions'):
+                    count += 1
+        print(count)
+        " 2>/dev/null || echo "0")
+          echo "[audit] Fixable CVEs: $$critical"
+          if [ "$$critical" -gt 0 ]; then
+            pip-audit -r api/requirements.lock 2>/dev/null || true
+            echo "[FAIL] $$critical fixable CVE(s) in dependencies"
+            exit 1
+          fi
+        fi
+        echo "[OK] Dependency audit clean"
+      # Secrets scan — baseline-gated (blocks merge on any NEW finding vs .secrets.baseline)
+      - echo "[validate] Scanning for leaked secrets (baseline-gated)..."
+      - |
+        if [ ! -f .secrets.baseline ]; then
+          echo "[FAIL] .secrets.baseline missing — run 'make secrets-baseline' to generate"
+          exit 1
+        fi
+        cp .secrets.baseline /tmp/baseline.orig
+        detect-secrets scan \
+          --baseline .secrets.baseline \
+          --exclude-files '\.git/.*' \
+          --exclude-files 'env\.example' \
+          --exclude-files '\.env' \
+          --exclude-files 'tests/.*' \
+          --exclude-files '.*\.pyc' \
+          --exclude-files '\.venv/.*' \
+          --exclude-files '\.ruff_cache/.*' \
+          --exclude-files '\.pytest_cache/.*' \
+          --exclude-files '\.coverage' \
+          --exclude-files '.*\.lock' \
+          --exclude-files 'requirements-dev\.txt' \
+          >/dev/null
+        # Compare ignoring the volatile generated_at timestamp (sh-portable, no process substitution)
+        grep -v '"generated_at"' /tmp/baseline.orig > /tmp/baseline.old.cmp
+        grep -v '"generated_at"' .secrets.baseline > /tmp/baseline.new.cmp
+        if ! diff /tmp/baseline.old.cmp /tmp/baseline.new.cmp >/dev/null; then
+          echo "[FAIL] New secret(s) detected vs .secrets.baseline:"
+          diff /tmp/baseline.orig .secrets.baseline | head -60 || true
+          echo ""
+          echo "Either:"
+          echo "  - rotate the leaked secret in rhorizon and remove it from history, OR"
+          echo "  - if false positive: re-baseline locally with 'make secrets-baseline' + audit + commit"
+          cp /tmp/baseline.orig .secrets.baseline
+          exit 1
+        fi
+        echo "[OK] No new secrets vs baseline"
+
+  # ------------------------------------------------------------------
+  # 2. Tests — pytest with real PostgreSQL + coverage
+  # ------------------------------------------------------------------
+  - name: test
+    image: python:3.12-slim
+    volumes:
+      - pip-cache:/root/.cache/pip
+    environment:
+      TEST_DATABASE_URL: "postgresql://cmdb_test:cmdb_test@postgres-test:5432/cmdb_test"
+      PYTHONUNBUFFERED: "1"
+    commands:
+      # SLSA: pinned CVE-fixed pip + hash-verified runtime and test deps only.
+      - pip install --no-cache-dir "pip==26.1.2"
+      - pip install --no-cache-dir --require-hashes -r api/requirements.lock -r requirements-dev.txt
+      - echo "[validate] Running tests with coverage..."
+      - python -u -m pytest tests/ --tb=short --cov=api/app --cov-report=term-missing:skip-covered --cov-report=json:/root/.cache/pip/coverage.json --cov-fail-under=80 -v --timeout=60 --durations=20
+    when:
+      - status: success
+
+  # ------------------------------------------------------------------
+  # 3. Compose validation + file checks + security checks
+  # ------------------------------------------------------------------
+  - name: validate-compose
+    image: docker:29-cli
+    commands:
+      - docker compose config --quiet
+      - echo "[OK] Compose config valid"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    when:
+      - status: success
+
+  - name: check-files
+    image: alpine:3.23
+    commands:
+      - |
+        echo "[validate] Checking required files..."
+        ok=true
+        for f in schema.sql api/requirements.txt api/Dockerfile frontend/nginx.conf docker-compose.yml env.example versions.env .secrets.baseline .pre-commit-config.yaml scripts/git-hooks/pre-commit; do
+          if [ ! -f "$$f" ]; then
+            echo "[FAIL] Missing $$f"
+            ok=false
+          fi
+        done
+        $$ok && echo "[OK] All required files present"
+      - |
+        echo "[validate] Checking CI image versions vs versions.env..."
+        . ./versions.env
+        fail=false
+        check_image() {
+          local name="$$1" expected="$$2"
+          found=$$(grep -rh "image:.*$$name" .woodpecker/*.yml | grep -v '^\s*#' | head -1 | sed 's/.*image:\s*//')
+          if [ -z "$$found" ]; then return; fi
+          if echo "$$found" | grep -qv "$$expected"; then
+            echo "[FAIL] $$name mismatch: pipeline has $$found, versions.env has $$expected"
+            fail=true
+          fi
+        }
+        check_image "alpine:" "$$ALPINE_VERSION"
+        check_image "docker:" "$$DOCKER_CLI_VERSION"
+        check_image "trivy:" "$$TRIVY_VERSION"
+        check_image "nuclei:" "$$NUCLEI_VERSION"
+        if [ "$$fail" = true ]; then
+          echo "[FAIL] Update .woodpecker/*.yml or versions.env to match"
+          exit 1
+        fi
+        echo "[OK] CI image versions match versions.env"
+    when:
+      - status: success
+
+  - name: check-security
+    image: alpine:3.23
+    commands:
+      - |
+        echo "[validate] Security checks..."
+        fail=false
+        # CSP: no inline handlers in JS
+        echo "[validate] Checking CSP compliance (no inline handlers)..."
+        if grep -rn 'onclick=\|onchange=\|oninput=\|onsubmit=' frontend/js/views/ frontend/js/panels/ frontend/index.html 2>/dev/null | grep -v '^\s*//' | grep '="'; then
+          echo "[FAIL] Inline event handlers found — CSP script-src 'self' violation"
+          fail=true
+        else
+          echo "[OK] No inline handlers (CSP ready)"
+        fi
+        # CSP: nginx has script-src without unsafe-inline
+        if grep -q "script-src 'self' 'unsafe-inline'" frontend/nginx.conf 2>/dev/null; then
+          echo "[FAIL] CSP script-src still has unsafe-inline"
+          fail=true
+        fi
+        # CSP: nginx script-src must never include unsafe-eval
+        if grep -oE "script-src[^;]*" frontend/nginx.conf 2>/dev/null | grep -q "unsafe-eval"; then
+          echo "[FAIL] CSP script-src must never include 'unsafe-eval'"
+          fail=true
+        fi
+        # CSP: nginx style-src must never include unsafe-eval
+        if grep -oE "style-src[^;]*" frontend/nginx.conf 2>/dev/null | grep -q "unsafe-eval"; then
+          echo "[FAIL] CSP style-src must never include 'unsafe-eval'"
+          fail=true
+        fi
+        # CSP: api/main.py middleware must keep default-src 'none' (locked)
+        if ! grep -q "default-src 'none'" api/app/main.py 2>/dev/null; then
+          echo "[FAIL] api/app/main.py CSP must keep default-src 'none'"
+          fail=true
+        fi
+        if grep -oE "Content-Security-Policy[^\"']*[\"'][^\"']+" api/app/main.py 2>/dev/null | grep -qE "unsafe-inline|unsafe-eval"; then
+          echo "[FAIL] api/app/main.py CSP must never include 'unsafe-inline' or 'unsafe-eval'"
+          fail=true
+        fi
+        # Nginx security headers
+        if ! grep -q "X-Frame-Options" frontend/nginx.conf 2>/dev/null; then
+          echo "[FAIL] Missing X-Frame-Options in nginx.conf"
+          fail=true
+        fi
+        if ! grep -q "X-Content-Type-Options" frontend/nginx.conf 2>/dev/null; then
+          echo "[FAIL] Missing X-Content-Type-Options in nginx.conf"
+          fail=true
+        fi
+        # Swagger disabled
+        # Swagger must be behind feature flag (ENABLE_SWAGGER), default off
+        if ! grep -q 'enable_swagger.*=.*False' api/app/config.py; then
+          echo "[FAIL] ENABLE_SWAGGER must default to False in config.py"
+          fail=true
+        fi
+        # Dockerfile uses non-root
+        if ! grep -q "USER" api/Dockerfile; then
+          echo "[WARN] api/Dockerfile should use non-root USER"
+        fi
+        # SSO fallback
+        if grep -q 'return "admin".*SSO\|# SSO.*admin' api/app/auth.py; then
+          echo "[WARN] SSO fallback should not default to admin"
+        fi
+        # Settings encryption
+        if ! grep -q "encrypt_setting" api/app/routes/settings.py; then
+          echo "[WARN] Settings should encrypt secrets"
+        fi
+        if [ "$$fail" = true ]; then
+          exit 1
+        fi
+        echo "[OK] Security checks passed"
+    when:
+      - status: success
+
+  # ------------------------------------------------------------------
+  # Test summary (own log stream, not polluted by postgres-test)
+  # ------------------------------------------------------------------
+  - name: test-summary
+    image: python:3.12-slim
+    volumes:
+      - pip-cache:/root/.cache/pip
+    commands:
+      - |
+        echo "=== TEST & COVERAGE SUMMARY ==="
+        if [ ! -f /root/.cache/pip/coverage.json ]; then
+          echo "[WARN] No coverage.json — tests may have failed before coverage"
+          exit 0
+        fi
+        python3 -c "
+        import json
+        d = json.load(open('/root/.cache/pip/coverage.json'))
+        t = d['totals']
+        pct = t['percent_covered_display']
+        stmts = t['num_statements']
+        miss = t['missing_lines']
+        covered = t['covered_lines']
+        print(f'Coverage: {pct}%')
+        print(f'Statements: {stmts} | Covered: {covered} | Missed: {miss}')
+        print()
+        # Show worst files (most missed lines)
+        worst = sorted(d['files'].items(), key=lambda x: x[1]['summary']['missing_lines'], reverse=True)[:10]
+        if worst and worst[0][1]['summary']['missing_lines'] > 0:
+            print('Worst coverage (most missed lines):')
+            for path, info in worst:
+                s = info['summary']
+                if s['missing_lines'] > 0:
+                    name = path.replace('api/app/', '')
+                    print(f'  {name}: {s[\"percent_covered_display\"]}% ({s[\"missing_lines\"]} missed)')
+        "
+    when:
+      - status: [success, failure]
+
+  # ------------------------------------------------------------------
+  # Notifications
+  # ------------------------------------------------------------------
+  - name: notify-success
+    image: python:3.12-slim
+    volumes:
+      - pip-cache:/root/.cache/pip
+    commands:
+      - pip install --quiet httpx 2>/dev/null || true
+      - |
+        cov=$$(python3 -c "
+        import json
+        try:
+            d = json.load(open('/root/.cache/pip/coverage.json'))
+            print(d['totals']['percent_covered_display'] + '% coverage')
+        except Exception:
+            print('tests passed')
+        " 2>/dev/null)
+        python3 -c "
+        import httpx, sys
+        try:
+            httpx.post('http://10.0.0.1:8080/alert/woodpecker', json={
+                'repo': {'full_name': 'youruser/cmdb'},
+                'build': {'status': 'success', 'branch': 'main',
+                    'message': 'validate OK — $${cov} (#${CI_PIPELINE_NUMBER})',
+                    'link': 'https://ci.example.com/repos/youruser/cmdb/pipeline/${CI_PIPELINE_NUMBER}'}
+            }, timeout=10)
+        except Exception as e:
+            print(f'[WARN] Matrix notification failed: {e}')
+        "
+    when:
+      - status: success
+
+  - name: notify-failure
+    image: python:3.12-slim
+    volumes:
+      - pip-cache:/root/.cache/pip
+    commands:
+      - pip install --quiet httpx 2>/dev/null || true
+      - |
+        cov=$$(python3 -c "
+        import json
+        try:
+            d = json.load(open('/root/.cache/pip/coverage.json'))
+            print(d['totals']['percent_covered_display'] + '% coverage')
+        except Exception:
+            print('tests failed')
+        " 2>/dev/null)
+        python3 -c "
+        import httpx, sys
+        try:
+            httpx.post('http://10.0.0.1:8080/alert/woodpecker', json={
+                'repo': {'full_name': 'youruser/cmdb'},
+                'build': {'status': 'failure', 'branch': 'main',
+                    'message': 'validate FAILED — $${cov} (#${CI_PIPELINE_NUMBER})',
+                    'link': 'https://ci.example.com/repos/youruser/cmdb/pipeline/${CI_PIPELINE_NUMBER}'}
+            }, timeout=10)
+        except Exception as e:
+            print(f'[WARN] Matrix notification failed: {e}')
+        "
+    when:
+      - status: failure

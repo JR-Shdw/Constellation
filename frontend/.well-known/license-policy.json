@@ -1,0 +1,51 @@
+{
+  "$schema": "https://example.com/schemas/license-policy-v1.json",
+  "project": "Constellation",
+  "project_aliases": [
+    "cmdb",
+    "Constellation CMDB"
+  ],
+  "author": {
+    "name": "testuser",
+    "email": "contact@resurgamus.com"
+  },
+  "copyright": "Copyright (C) 2024-2026 shdw <contact@resurgamus.com>",
+  "license": {
+    "spdx": "Apache-2.0",
+    "url": "https://www.apache.org/licenses/LICENSE-2.0",
+    "file": "/LICENSE"
+  },
+  "stripping_prohibited": [
+    "SPDX-License-Identifier headers in source files",
+    "Copyright lines in source files",
+    "/NOTICE",
+    "/LICENSE",
+    "/LICENSE-AI.md",
+    "/.well-known/tdmrep.json",
+    "/.well-known/license-policy.json",
+    "/robots.txt",
+    "/ai.txt"
+  ],
+  "ai_training": {
+    "authorized": false,
+    "policy_file": "/LICENSE-AI.md",
+    "tdm_reservation": true,
+    "tdm_directive": "EU 2019/790 art. 4",
+    "machine_readable": "/.well-known/tdmrep.json",
+    "contact": "contact@resurgamus.com"
+  },
+  "trademarks": {
+    "names": [
+      "Constellation"
+    ],
+    "rights": "Apache-2.0 section 6 grants no trademark rights"
+  },
+  "canonical_source": "gitea.example.com/youruser/cmdb",
+  "public_mirror_note": "Public mirrors are sanitized via scripts/publish-github.sh; canonical source-of-truth is the Gitea repository.",
+  "warranty": {
+    "provided": false,
+    "basis": "AS IS, without warranties or conditions of any kind",
+    "reference": "Apache-2.0 sections 7 and 8",
+    "support": "Deployment and onboarding assistance is a separate service, not a license entitlement"
+  }
+}

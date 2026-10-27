@@ -1,0 +1,15 @@
+.env
+local/.env.local
+*.pyc
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.vault_pass
+.claude/
+.private/
+constellation-favicon-pack-rounded/
+# Ansible collection — separate repo: youruser/cmdb_collect
+ansible/
+logs/
+.coverage

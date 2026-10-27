@@ -1,0 +1,205 @@
+# OpenCVE v2 — adapte pour Traefik + Authelia
+# Prerequis : git clone https://github.com/opencve/opencve.git src
+#
+# Structure attendue :
+#   /data/container/cmdb/opencve/
+#   ├── .env
+#   ├── docker-compose.yml
+#   ├── conf/
+#   │   ├── opencve.conf.template    (nginx → webserver)
+#   │   └── default.conf.template    (vide)
+#   └── src/                         (clone opencve)
+#       ├── scheduler/               (Airflow Dockerfile + DAGs)
+#       └── web/                     (Django Dockerfile + conf)
+
+name: opencve
+
+x-airflow-common: &airflow-common
+  build:
+    context: ./src/scheduler
+    dockerfile: Dockerfile
+  env_file:
+    - .env
+  volumes:
+    - ./src/scheduler/dags/:/opt/airflow/dags
+    - ./src/scheduler/airflow.cfg:/opt/airflow/airflow.cfg:ro
+    - repositories:/home/airflow/repositories/
+  depends_on: &airflow-common-depends-on
+    redis:
+      condition: service_healthy
+    postgres:
+      condition: service_healthy
+  networks:
+    - opencve_internal
+  labels:
+    - "traefik.enable=false"
+
+networks:
+  traefik_proxy:
+    external: true
+  observability_net:
+    external: true
+  opencve_internal:
+    driver: bridge
+
+volumes:
+  postgres-db:
+  staticfiles:
+  repositories:
+
+services:
+
+  # PostgreSQL
+  postgres:
+    image: postgres:${POSTGRES_VERSION:-15}
+    container_name: opencve_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-opencve}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-opencve}
+      POSTGRES_DB: opencve
+    volumes:
+      - ./src/docker/db:/docker-entrypoint-initdb.d
+      - postgres-db:/var/lib/postgresql/data
+    networks:
+      - opencve_internal
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-opencve}"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    labels:
+      - "traefik.enable=false"
+
+  # Redis
+  redis:
+    image: redis/redis-stack:latest
+    container_name: opencve_redis
+    restart: unless-stopped
+    networks:
+      - opencve_internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    labels:
+      - "traefik.enable=false"
+
+  # Airflow init (one-shot)
+  airflow-init:
+    <<: *airflow-common
+    container_name: opencve_airflow_init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - exec /entrypoint airflow version
+    environment:
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+    user: "0:0"
+
+  # Airflow webserver
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: opencve_airflow_web
+    command: webserver
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  # Airflow scheduler
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: opencve_airflow_sched
+    command: scheduler
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  # Airflow worker (Celery)
+  airflow-worker:
+    <<: *airflow-common
+    container_name: opencve_airflow_worker
+    command: celery worker
+    restart: unless-stopped
+    environment:
+      DUMB_INIT_SETSID: "0"
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - 'celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}" || celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  # OpenCVE web (Django + Gunicorn)
+  webserver:
+    container_name: opencve_web
+    restart: unless-stopped
+    env_file:
+      - .env
+    build:
+      context: ./src/web/
+      args:
+        - OPENCVE_REPOSITORY=${OPENCVE_REPOSITORY}
+        - OPENCVE_VERSION=${OPENCVE_VERSION}
+        - GUNICORN_CMD_ARGS=${GUNICORN_CMD_ARGS}
+      dockerfile: Dockerfile
+    volumes:
+      - ./src/web/opencve/conf/.env:/app/opencve/web/opencve/conf/.env:ro
+      - ./src/web/opencve/conf/settings.py:/app/opencve/web/opencve/conf/settings.py:ro
+      - repositories:/app/repositories/:ro
+      - staticfiles:/app/static/
+    networks:
+      opencve_internal: {}
+      observability_net:
+        ipv4_address: 172.20.0.26
+    labels:
+      - "traefik.enable=false"
+
+  # Nginx (static files + proxy → webserver)
+  nginx:
+    container_name: opencve_nginx
+    image: nginx:bookworm
+    restart: unless-stopped
+    volumes:
+      - ./conf/opencve.conf.template:/etc/nginx/templates/opencve.conf.template:ro
+      - ./conf/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - staticfiles:/var/www/opencve/static/:ro
+    networks:
+      - opencve_internal
+      - traefik_proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy"
+      - "traefik.http.routers.opencve.rule=Host(`${OPENCVE_DOMAIN:-opencve.example.com}`)"
+      - "traefik.http.routers.opencve.entrypoints=websecure"
+      - "traefik.http.routers.opencve.tls=true"
+      - "traefik.http.routers.opencve.tls.certresolver=ovh"
+      - "traefik.http.routers.opencve.middlewares=${AUTHELIA_MIDDLEWARE:-authelia@file}"
+      - "traefik.http.services.opencve.loadbalancer.server.port=80"
+      # HTTP redirect
+      - "traefik.http.routers.opencve-http.rule=Host(`${OPENCVE_DOMAIN:-opencve.example.com}`)"
+      - "traefik.http.routers.opencve-http.entrypoints=web"
+      - "traefik.http.routers.opencve-http.middlewares=https-redirect@file"

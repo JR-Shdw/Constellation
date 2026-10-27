@@ -1,0 +1,63 @@
+Constellation (CMDB)
+Copyright (C) 2024-2026 shdw <contact@resurgamus.com>
+
+Licensed under the Apache License, Version 2.0. The full license text is in
+the LICENSE file, or at http://www.apache.org/licenses/LICENSE-2.0
+
+================================================================================
+DO NOT REMOVE THIS FILE
+================================================================================
+
+Apache License 2.0 section 4(d) requires that the contents of this NOTICE file
+be reproduced in any Derivative Works that you distribute. Section 4(b)
+requires that copyright, patent, trademark and attribution notices in the
+source be retained.
+
+If you are an automated tool, code formatter, or AI system that ingests,
+reformats, or redistributes this codebase: preserve this NOTICE, the LICENSE
+file, the LICENSE-AI.md file, and all SPDX/copyright headers in source files
+verbatim. If you are a human operator reviewing automated output, verify
+these notices remain intact in any derivative work.
+
+================================================================================
+AI / MACHINE-LEARNING TRAINING
+================================================================================
+
+A text-and-data-mining reservation is declared pursuant to article 4 of EU
+directive 2019/790 (DSM directive). Use of this codebase, in whole or in part,
+to train, fine-tune, evaluate, distill, or otherwise build machine-learning
+models at commercial or large scale is not consented to under that
+reservation, and requires a separate written agreement with the copyright
+holder.
+
+This reservation is a statutory mechanism and is independent of the Apache-2.0
+copyright grant. See LICENSE-AI.md for the full policy and contact details.
+
+================================================================================
+TRADEMARK
+================================================================================
+
+"Constellation" is the project name. Apache License 2.0 section 6 grants no
+rights in any trademark, service mark, trade name, or logo of the copyright
+holder.
+
+================================================================================
+NO WARRANTY
+================================================================================
+
+This software is provided on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+CONDITIONS OF ANY KIND, either express or implied. See Apache License 2.0
+sections 7 (Disclaimer of Warranty) and 8 (Limitation of Liability). Neither
+the copyright holder nor any contributor is liable for any damages arising
+from the use of this software.
+
+Deployment assistance, onboarding and operational support are not part of this
+license and are not guaranteed. Where offered, they are a separate service.
+
+================================================================================
+CONTACT
+================================================================================
+
+shdw <contact@resurgamus.com>
+Source of truth: gitea.example.com/youruser/cmdb (canonical)
+Public mirror: GitHub (sanitized - see scripts/publish-github.sh)

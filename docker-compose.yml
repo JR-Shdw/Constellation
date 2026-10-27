@@ -1,0 +1,310 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2024-2026 shdw <contact@resurgamus.com>
+# CMDB Stack — s'appuie sur Traefik + Authelia existants sur vega
+#
+# Reseaux:
+#   traefik_proxy  = reseau externe Traefik (existant)
+#   cmdb_internal  = postgres + api, isole
+#
+# WireGuard:
+#   API      sur WG1_IP (10.0.1.1, wg1) ET WG_IP (10.0.0.1, wg0) — collecte tous hosts
+#   Frontend sur WG_IP  (10.0.0.1, wg0 VPN)    — acces direct interne
+# HTTPS: tout passe aussi par Traefik + Authelia
+
+networks:
+  traefik_proxy:
+    external: true
+  cmdb_internal:
+    driver: bridge
+    internal: true
+  observability_net:
+    external: true
+
+volumes:
+  postgres_data:
+  sync_triggers:
+
+services:
+
+  # PostgreSQL
+  postgres:
+    image: postgres:${POSTGRES_VERSION:-18-trixie}
+    container_name: cmdb_postgres
+    restart: unless-stopped
+    env_file:
+      - versions.env
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB}
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # PG18's official image moved the default PGDATA to
+      # /var/lib/postgresql/18/docker. Pin it back to .../data so the named
+      # volume mounted below stays the authoritative data dir across upgrades.
+      PGDATA: /var/lib/postgresql/data
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=${PG_MAX_CONNECTIONS:-400}"
+      - "-c"
+      - "shared_buffers=${PG_SHARED_BUFFERS:-1GB}"
+      - "-c"
+      - "effective_cache_size=${PG_EFFECTIVE_CACHE_SIZE:-4GB}"
+      - "-c"
+      - "work_mem=${PG_WORK_MEM:-32MB}"
+      - "-c"
+      - "maintenance_work_mem=${PG_MAINTENANCE_WORK_MEM:-256MB}"
+      - "-c"
+      - "wal_buffers=${PG_WAL_BUFFERS:-64MB}"
+      - "-c"
+      - "max_wal_size=${PG_MAX_WAL_SIZE:-2GB}"
+      - "-c"
+      - "checkpoint_timeout=${PG_CHECKPOINT_TIMEOUT:-15min}"
+      - "-c"
+      - "random_page_cost=${PG_RANDOM_PAGE_COST:-1.1}"
+      # Diagnostics — log slow queries, lock waits, and big temp files
+      # (typically the v_all_cves CTE under load). Defaults to 1s slow
+      # threshold; tighten via PG_LOG_MIN_DURATION_MS.
+      - "-c"
+      - "log_min_duration_statement=${PG_LOG_MIN_DURATION_MS:-1000}"
+      - "-c"
+      - "log_lock_waits=${PG_LOG_LOCK_WAITS:-on}"
+      - "-c"
+      - "log_temp_files=${PG_LOG_TEMP_FILES:-10MB}"
+      - "-c"
+      - "log_line_prefix=%m [%p] %u@%d %a "
+      - "-c"
+      - "deadlock_timeout=${PG_DEADLOCK_TIMEOUT:-1s}"
+      # Anti-zombie: kill stuck transactions + detect dead clients (TCP half-open).
+      # Required to prevent socket exhaustion when api worker dies mid-transaction.
+      - "-c"
+      - "idle_in_transaction_session_timeout=${PG_IDLE_IN_TX_TIMEOUT_MS:-60000}"
+      - "-c"
+      - "statement_timeout=${PG_STATEMENT_TIMEOUT_MS:-0}"
+      - "-c"
+      - "tcp_keepalives_idle=${PG_TCP_KEEPALIVES_IDLE:-60}"
+      - "-c"
+      - "tcp_keepalives_interval=${PG_TCP_KEEPALIVES_INTERVAL:-10}"
+      - "-c"
+      - "tcp_keepalives_count=${PG_TCP_KEEPALIVES_COUNT:-3}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    networks:
+      - cmdb_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      # First boot runs initdb + applies the full schema.sql before the server
+      # accepts connections. Without a start_period those early failures count
+      # toward `retries` and a slow first-init gets marked unhealthy, aborting
+      # dependents in CI (`depends_on: service_healthy`). Grace the cold start.
+      start_period: 90s
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      - "traefik.enable=false"
+
+  # API FastAPI
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.12-slim}
+    container_name: cmdb_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL:  postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      SECRET_KEY:    ${API_SECRET_KEY}
+      COLLECT_TOKEN: ${COLLECT_TOKEN}
+      TOKEN_HMAC_KEY:   ${TOKEN_HMAC_KEY:-}
+      WOODPECKER_URL:   ${WOODPECKER_URL:-}
+      WOODPECKER_TOKEN: ${WOODPECKER_TOKEN:-}
+      GITEA_URL:        ${GITEA_URL:-}
+      GITEA_TOKEN:      ${GITEA_TOKEN:-}
+      GITLAB_URL:       ${GITLAB_URL:-}
+      GITLAB_TOKEN:     ${GITLAB_TOKEN:-}
+      FORGEJO_URL:      ${FORGEJO_URL:-}
+      FORGEJO_TOKEN:    ${FORGEJO_TOKEN:-}
+      OPENCVE_WEB_URL:  ${OPENCVE_WEB_URL:-}
+      VAULT_URL:        ${VAULT_URL:-}
+      VAULT_TOKEN:      ${VAULT_TOKEN:-}
+      UVICORN_WORKERS:  ${UVICORN_WORKERS:-4}
+      DB_POOL_SIZE:     ${DB_POOL_SIZE:-10}
+      DB_MAX_OVERFLOW:  ${DB_MAX_OVERFLOW:-20}
+      DB_POOL_RECYCLE:  ${DB_POOL_RECYCLE:-300}
+      DB_POOL_TIMEOUT:  ${DB_POOL_TIMEOUT:-10}
+      DB_POOL_LOG_INTERVAL: ${DB_POOL_LOG_INTERVAL:-60}
+      DB_POOL_WARN_FREE: ${DB_POOL_WARN_FREE:-3}
+      DB_ACTIVITY_LOG_INTERVAL: ${DB_ACTIVITY_LOG_INTERVAL:-60}
+      DB_ACTIVITY_SLOW_SECONDS: ${DB_ACTIVITY_SLOW_SECONDS:-10}
+      DB_ACTIVITY_WARN_TOTAL: ${DB_ACTIVITY_WARN_TOTAL:-80}
+      PYTHONDONTWRITEBYTECODE: "1"
+    shm_size: '64m'
+    # --- Security hardening ---
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,nosuid,nodev
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_RAW                          # heartbeat ping
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      # WireGuard wg1 — flux machine-to-machine (Ansible, scripts, Trivy)
+      - "${WG1_IP:-10.0.1.1}:8000:8000"
+      # WireGuard wg0 — acces admin et scripts sur hosts wg0 uniquement (restic)
+      - "${WG_IP:-10.0.0.1}:8000:8000"
+    volumes:
+      - sync_triggers:/triggers
+    networks:
+      - cmdb_internal
+      - traefik_proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy"
+      # Route API (priorite haute)
+      - "traefik.http.routers.cmdb-api.rule=Host(`${CMDB_DOMAIN}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.cmdb-api.entrypoints=websecure"
+      - "traefik.http.routers.cmdb-api.tls=true"
+      - "traefik.http.routers.cmdb-api.tls.certresolver=ovh"
+      - "traefik.http.routers.cmdb-api.middlewares=${AUTHELIA_MIDDLEWARE}"
+      - "traefik.http.routers.cmdb-api.priority=10"
+      - "traefik.http.services.cmdb-api.loadbalancer.server.port=8000"
+      # HTTP redirect
+      - "traefik.http.routers.cmdb-api-http.rule=Host(`${CMDB_DOMAIN}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.cmdb-api-http.entrypoints=web"
+      - "traefik.http.routers.cmdb-api-http.middlewares=https-redirect@file"
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NGINX_VERSION: ${NGINX_VERSION:-stable-alpine}
+    container_name: cmdb_frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      # WireGuard wg0 — acces direct interne (80 pris par Traefik)
+      - "${WG_IP:-10.0.0.1}:3000:80"
+    # --- Security hardening ---
+    read_only: true
+    tmpfs:
+      - /tmp:size=8M,nosuid,nodev
+      - /var/cache/nginx:size=16M,nosuid,nodev
+      - /var/run:size=1M,nosuid,nodev
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN                              # nginx entrypoint chowns cache dirs
+      - SETUID                             # master spawns workers as nginx user
+      - SETGID                             # master sets worker group
+      - NET_BIND_SERVICE                   # bind to port 80
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - cmdb_internal
+      - traefik_proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy"
+      # Route frontend (priorite basse)
+      - "traefik.http.routers.cmdb-front.rule=Host(`${CMDB_DOMAIN}`)"
+      - "traefik.http.routers.cmdb-front.entrypoints=websecure"
+      - "traefik.http.routers.cmdb-front.tls=true"
+      - "traefik.http.routers.cmdb-front.tls.certresolver=ovh"
+      - "traefik.http.routers.cmdb-front.middlewares=${AUTHELIA_MIDDLEWARE}"
+      - "traefik.http.routers.cmdb-front.priority=1"
+      - "traefik.http.services.cmdb-front.loadbalancer.server.port=80"
+      # HTTP redirect
+      - "traefik.http.routers.cmdb-front-http.rule=Host(`${CMDB_DOMAIN}`)"
+      - "traefik.http.routers.cmdb-front-http.entrypoints=web"
+      - "traefik.http.routers.cmdb-front-http.middlewares=https-redirect@file"
+
+  # Sync OpenCVE (toutes les heures)
+  # Passe par observability_net pour joindre opencve_web (172.20.0.25)
+  sync-opencve:
+    build:
+      context: ./tools
+      args:
+        PYTHON_VERSION: ${PYTHON_TOOLS_VERSION:-3.12-slim-bookworm}
+    container_name: cmdb_sync_opencve
+    restart: unless-stopped
+    
+    environment:
+      OPENCVE_URL:      http://172.20.0.26:8000
+      OPENCVE_USER:     ${OPENCVE_USER}
+      OPENCVE_PASSWORD: ${OPENCVE_PASSWORD}
+      CMDB_API:         http://api:8000
+      CMDB_COLLECT_TOKEN: ${COLLECT_TOKEN}
+      CMDB_INGEST_TIMEOUT: ${CMDB_INGEST_TIMEOUT:-1200}
+      SYNC_INTERVAL_SECONDS: "3600"
+      PYTHONDONTWRITEBYTECODE: "1"
+    command: ["python3", "/app/sync_opencve.py", "--hours", "2"]
+    volumes:
+      - sync_triggers:/triggers
+    # --- Security hardening ---
+    read_only: true
+    tmpfs:
+      - /tmp:size=16M,nosuid,nodev
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - api
+    networks:
+      cmdb_internal: {}
+      observability_net:
+        ipv4_address: 172.20.0.25
+    labels:
+      - "traefik.enable=false"
+
+  # Sync Wazuh (toutes les 6h)
+  # Passe par observability_net pour joindre wazuh-manager API (172.20.0.12:55000)
+  sync-wazuh:
+    build:
+      context: ./tools
+      args:
+        PYTHON_VERSION: ${PYTHON_TOOLS_VERSION:-3.12-slim-bookworm}
+    container_name: cmdb_sync_wazuh
+    restart: unless-stopped
+    environment:
+      WAZUH_URL:             https://172.20.0.12:55000
+      WAZUH_USER:            ${WAZUH_USER:-wazuh-wui}
+      WAZUH_PASSWORD:        ${WAZUH_ADMIN_PASSWORD}
+      OPENSEARCH_URL:        https://172.20.0.11:9200
+      OPENSEARCH_USER:       admin
+      OPENSEARCH_PASSWORD:   ${WAZUH_ADMIN_PASSWORD}
+      CMDB_API:              http://api:8000
+      CMDB_COLLECT_TOKEN:    ${COLLECT_TOKEN}
+      CMDB_INGEST_TIMEOUT:   ${CMDB_INGEST_TIMEOUT:-1200}
+      SYNC_INTERVAL_SECONDS: "21600"
+      PYTHONDONTWRITEBYTECODE: "1"
+    command: ["python3", "/app/sync_wazuh.py"]
+    volumes:
+      - sync_triggers:/triggers
+    # --- Security hardening ---
+    read_only: true
+    tmpfs:
+      - /tmp:size=16M,nosuid,nodev
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - api
+    networks:
+      cmdb_internal: {}
+      observability_net:
+        ipv4_address: 172.20.0.27
+    labels:
+      - "traefik.enable=false"

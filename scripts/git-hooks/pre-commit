@@ -1,0 +1,193 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2024-2026 shdw <contact@resurgamus.com>
+#
+# Constellation — pre-commit hook (Option B: shell + Docker fallback)
+#
+# Activation (one-time, per contributor):
+#   make hooks-install
+# which does:  git config core.hooksPath scripts/git-hooks
+#
+# Alternative (Option A): .pre-commit-config.yaml + pre-commit install
+#
+# This script checks the SAME things as the framework path — keep them in sync:
+#   1. ruff check (lint) on staged Python files
+#   2. ruff format --check on staged Python files
+#   3. detect-secrets vs .secrets.baseline on staged files
+#
+# Bypass: git commit --no-verify   (use sparingly — CI will catch what you skip)
+
+set -e
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+cd "$REPO_ROOT"
+
+# Load pinned versions
+if [ -f versions.env ]; then
+  # shellcheck disable=SC1091
+  . ./versions.env
+fi
+RUFF_PIN="${RUFF_VERSION:-0.15.13}"
+DS_PIN="${DETECT_SECRETS_VERSION:-1.5.0}"
+
+# Get staged files (added/copied/modified, NOT deleted/renamed)
+STAGED=$(git diff --cached --name-only --diff-filter=ACM)
+if [ -z "$STAGED" ]; then
+  exit 0
+fi
+
+# Filter Python files for ruff
+PY_FILES=$(printf "%s\n" "$STAGED" | grep -E '\.py$' || true)
+
+# ---------------------------------------------------------------------------
+# Decide execution mode: local tools if available, Docker fallback otherwise.
+# ---------------------------------------------------------------------------
+mode=""
+if command -v ruff >/dev/null 2>&1 && command -v detect-secrets >/dev/null 2>&1; then
+  mode="local-path"
+elif [ -x .venv/bin/ruff ] && [ -x .venv/bin/detect-secrets ]; then
+  mode="local-venv"
+elif command -v docker >/dev/null 2>&1 || command -v podman >/dev/null 2>&1; then
+  mode="container"
+else
+  echo "[pre-commit] No ruff/detect-secrets in PATH or .venv, and no docker/podman."
+  echo "[pre-commit] Either install them locally, or install Docker, or bypass with --no-verify."
+  exit 1
+fi
+
+run_ruff_check() {
+  # $1 = command prefix (e.g. 'ruff' or '.venv/bin/ruff' or 'docker run ...')
+  files="$1"
+  shift
+  if [ -z "$files" ]; then return 0; fi
+  echo "$files" | "$@" ruff check --no-cache -
+}
+
+# ---------------------------------------------------------------------------
+# Local execution paths (fast)
+# ---------------------------------------------------------------------------
+run_local() {
+  bin_ruff="$1"
+  bin_ds="$2"
+
+  if [ -n "$PY_FILES" ]; then
+    echo "[pre-commit] ruff check (staged python)..."
+    # shellcheck disable=SC2086
+    echo "$PY_FILES" | xargs "$bin_ruff" check --no-cache
+    echo "[pre-commit] ruff format --check (staged python)..."
+    # shellcheck disable=SC2086
+    echo "$PY_FILES" | xargs "$bin_ruff" format --check
+  fi
+
+  if [ ! -f .secrets.baseline ]; then
+    echo "[pre-commit] [FAIL] .secrets.baseline missing — run 'make secrets-baseline' to generate"
+    exit 1
+  fi
+
+  echo "[pre-commit] detect-secrets vs .secrets.baseline..."
+  cp .secrets.baseline /tmp/cmdb-baseline.orig.$$
+  "$bin_ds" scan \
+    --baseline .secrets.baseline \
+    --exclude-files '\.git/.*' \
+    --exclude-files 'env\.example' \
+    --exclude-files '\.env' \
+    --exclude-files 'tests/.*' \
+    --exclude-files '.*\.pyc' \
+    --exclude-files '\.venv/.*' \
+    --exclude-files '\.ruff_cache/.*' \
+    --exclude-files '\.pytest_cache/.*' \
+    --exclude-files '\.coverage' \
+    >/dev/null
+  grep -v '"generated_at"' /tmp/cmdb-baseline.orig.$$ > /tmp/cmdb-baseline.old.cmp.$$
+  grep -v '"generated_at"' .secrets.baseline > /tmp/cmdb-baseline.new.cmp.$$
+  if ! diff /tmp/cmdb-baseline.old.cmp.$$ /tmp/cmdb-baseline.new.cmp.$$ >/dev/null; then
+    echo "[pre-commit] [FAIL] New secret(s) detected vs .secrets.baseline:"
+    diff /tmp/cmdb-baseline.orig.$$ .secrets.baseline | head -30 || true
+    echo ""
+    echo "Either:"
+    echo "  - rotate the leaked secret (rhorizon) and remove it from your staged change"
+    echo "  - if false positive: re-baseline with 'make secrets-baseline' + audit + stage"
+    cp /tmp/cmdb-baseline.orig.$$ .secrets.baseline
+    rm -f /tmp/cmdb-baseline.*.$$ 2>/dev/null
+    exit 1
+  fi
+  rm -f /tmp/cmdb-baseline.*.$$ 2>/dev/null
+  echo "[pre-commit] [OK] no new secrets"
+}
+
+# ---------------------------------------------------------------------------
+# Container fallback (slower, zero install required)
+# ---------------------------------------------------------------------------
+run_container() {
+  if command -v docker >/dev/null 2>&1; then
+    rt="docker"
+  else
+    rt="podman"
+  fi
+
+  echo "[pre-commit] running checks in $rt (python:3.12-slim)..."
+  echo "[pre-commit] first run pulls + installs (~30s), subsequent runs faster."
+
+  # Pass staged file list via env var to keep the inline script tidy.
+  $rt run --rm \
+    -v "$REPO_ROOT:/work" \
+    -w /work \
+    -e PY_FILES="$PY_FILES" \
+    -e RUFF_PIN="$RUFF_PIN" \
+    -e DS_PIN="$DS_PIN" \
+    python:3.12-slim sh -c '
+      set -e
+      apt-get update -qq >/dev/null && apt-get install -qq -y git >/dev/null 2>&1
+      pip install --quiet --no-cache-dir "ruff==$RUFF_PIN" "detect-secrets==$DS_PIN"
+      git config --global --add safe.directory /work
+
+      if [ -n "$PY_FILES" ]; then
+        echo "[container] ruff check..."
+        echo "$PY_FILES" | xargs ruff check --no-cache
+        echo "[container] ruff format --check..."
+        echo "$PY_FILES" | xargs ruff format --check
+      fi
+
+      if [ ! -f .secrets.baseline ]; then
+        echo "[container] [FAIL] .secrets.baseline missing"
+        exit 1
+      fi
+
+      cp .secrets.baseline /tmp/orig
+      detect-secrets scan \
+        --baseline .secrets.baseline \
+        --exclude-files "\.git/.*" \
+        --exclude-files "env\.example" \
+        --exclude-files "\.env" \
+        --exclude-files "tests/.*" \
+        --exclude-files ".*\.pyc" \
+        --exclude-files "\.venv/.*" \
+        --exclude-files "\.ruff_cache/.*" \
+        --exclude-files "\.pytest_cache/.*" \
+        --exclude-files "\.coverage" \
+        >/dev/null
+      grep -v "\"generated_at\"" /tmp/orig > /tmp/old.cmp
+      grep -v "\"generated_at\"" .secrets.baseline > /tmp/new.cmp
+      if ! diff /tmp/old.cmp /tmp/new.cmp >/dev/null; then
+        echo "[container] [FAIL] new secret(s) vs baseline:"
+        diff /tmp/orig .secrets.baseline | head -30 || true
+        cp /tmp/orig .secrets.baseline
+        exit 1
+      fi
+      echo "[container] [OK] no new secrets"
+    '
+}
+
+case "$mode" in
+  local-path)
+    run_local "$(command -v ruff)" "$(command -v detect-secrets)"
+    ;;
+  local-venv)
+    run_local "$REPO_ROOT/.venv/bin/ruff" "$REPO_ROOT/.venv/bin/detect-secrets"
+    ;;
+  container)
+    run_container
+    ;;
+esac
+
+echo "[pre-commit] all checks passed"

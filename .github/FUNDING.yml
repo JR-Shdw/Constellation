@@ -1,0 +1,13 @@
+# Donation channels for Constellation.
+#
+# GitHub renders a Sponsor button from this file, but only once GitHub
+# Sponsors is enabled for the account. Uncomment and fill in the other
+# channels as they are set up.
+#
+# Funding this project grants no privileged access: releases and security
+# fixes go to everyone at the same time. See SUPPORT.md.
+
+github: [JR-Shdw]
+# liberapay: <account>
+# ko_fi: <account>
+# custom: ["<donation url>"]

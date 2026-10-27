@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2024-2026 shdw <contact@resurgamus.com>
+site_name: Constellation
+site_description: Infrastructure Security & Asset Management Platform
+site_url: https://constellation.example.com
+
+repo_url: https://gitea.example.com/youruser/cmdb
+repo_name: youruser/cmdb
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Light mode
+    - scheme: default
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Dark mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/gitea
+
+plugins:
+  - search
+  - i18n:
+      default_language: en
+      languages:
+        - locale: en
+          name: English
+          default: true
+          build: true
+        - locale: fr
+          name: Francais
+          build: true
+
+nav:
+  - Home: index.md
+  - Installation: install.md
+  - Operations: operations.md
+  - Features: features.md
+  - Scheduler: scheduler.md
+  - Connectors: connectors.md
+  - API Reference: api.md
+
+docs_dir: docs/en
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - tables
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/gitea
+      link: https://gitea.example.com/youruser/cmdb

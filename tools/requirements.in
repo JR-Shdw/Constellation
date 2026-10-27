@@ -1,0 +1,3 @@
+# Tools image deps — hash-locked (SLSA). Regenerate:
+#   pip-compile --generate-hashes --output-file=tools/requirements.lock tools/requirements.in
+requests==2.34.2

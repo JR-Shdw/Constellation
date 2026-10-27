@@ -1,0 +1,85 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2024-2026 shdw <contact@resurgamus.com>
+---
+# Weekly perf bench — 1000-node dataset vs hot endpoints.
+# Skipped on regular pushes (gated by RUN_BENCH=1 env flag in the test).
+# Triggered by:
+#   - Woodpecker cron "bench" (weekly)
+#   - manual trigger
+#
+# Budgets (p95 over 5 runs) live in tests/test_bench_1k_nodes.py.
+# Failure = a hot endpoint regressed past its budget on 1k nodes.
+
+when:
+  - event: cron
+    cron: bench
+  - event: manual
+
+labels:
+  host: vega
+
+services:
+  - name: postgres-test
+    image: postgres:18-trixie
+    environment:
+      POSTGRES_DB: cmdb_test
+      POSTGRES_USER: cmdb_test
+      POSTGRES_PASSWORD: cmdb_test
+
+steps:
+  - name: bench
+    image: python:3.12-slim
+    volumes:
+      - pip-cache:/root/.cache/pip
+    environment:
+      TEST_DATABASE_URL: "postgresql://cmdb_test:cmdb_test@postgres-test:5432/cmdb_test"
+      PYTHONUNBUFFERED: "1"
+      RUN_BENCH: "1"
+    commands:
+      # SLSA: pinned CVE-fixed pip + hash-verified runtime and test deps only.
+      - pip install --no-cache-dir "pip==26.1.2"
+      - pip install --no-cache-dir --require-hashes -r api/requirements.lock -r requirements-dev.txt
+      - echo "[bench] Running 1k-node read-latency suite (ASGI)..."
+      - python -u -m pytest tests/test_bench_1k_nodes.py tests/test_bench_backup_cicd.py -s -v --timeout=600
+      - echo "[bench] Running concurrent ingestion suite (uvicorn 4 workers iso-prod, /4 split)..."
+      - python -u -m pytest tests/test_bench_concurrent_ingest.py -s -v --timeout=600
+
+  - name: notify-success
+    image: python:3.12-slim
+    commands:
+      - pip install --quiet httpx 2>/dev/null || true
+      - |
+        python3 -c "
+        import httpx
+        try:
+            httpx.post('http://10.0.0.1:8080/alert/woodpecker', json={
+                'repo': {'full_name': 'youruser/cmdb'},
+                'build': {'status': 'success', 'branch': 'main',
+                    'message': 'bench OK — budgets respected (#${CI_PIPELINE_NUMBER})',
+                    'link': 'https://ci.example.com/repos/youruser/cmdb/pipeline/${CI_PIPELINE_NUMBER}'}
+            }, timeout=10)
+        except Exception as e:
+            print(f'[WARN] Matrix notification failed: {e}')
+        "
+    when:
+      - status: success
+
+  - name: notify-failure
+    image: python:3.12-slim
+    commands:
+      - pip install --quiet httpx 2>/dev/null || true
+      - |
+        python3 -c "
+        import httpx
+        try:
+            httpx.post('http://10.0.0.1:8080/alert/woodpecker', json={
+                'repo': {'full_name': 'youruser/cmdb'},
+                'build': {'status': 'failure', 'branch': 'main',
+                    'message': 'bench FAILED — perf budget breached (#${CI_PIPELINE_NUMBER})',
+                    'link': 'https://ci.example.com/repos/youruser/cmdb/pipeline/${CI_PIPELINE_NUMBER}'}
+            }, timeout=10)
+        except Exception as e:
+            print(f'[WARN] Matrix notification failed: {e}')
+        "
+    when:
+      - status: failure

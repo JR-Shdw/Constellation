@@ -1,0 +1,87 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Copyright (C) 2024-2026 shdw <contact@resurgamus.com> */
+/* Mobile stylesheet.
+   Two scopes:
+     a) @media (max-width: 480px)                — small-phone layout tweaks
+     b) @media (hover:none) and (pointer:coarse) — touch-device ergonomics */
+
+
+/* a) Small-phone layout (≤480px) */
+
+@media (max-width: 480px) {
+  body { font-size: 12px; }
+
+  .main { padding: 8px; }
+
+  /* Stats: single column */
+  .stats            { grid-template-columns: 1fr; gap: 6px; }
+  .stat-card        { padding: 10px; }
+  .stat-card .label { font-size: 10px; }
+  .stat-card .value { font-size: 20px; }
+
+  /* Tables: minimum viable padding */
+  th { padding: 6px 8px; font-size: 9px; letter-spacing: 0.5px; }
+  td { padding: 5px 8px; font-size: 11px; }
+
+  /* Detail: edge-to-edge */
+  .detail-overlay     { padding: 12px; }
+  .detail-overlay h2  { font-size: 15px; }
+  .detail-section h3  { font-size: 11px; }
+
+  /* Search */
+  .search-bar input { padding: 8px 10px; font-size: 12px; }
+
+  /* Per-view search inputs — fill the row when the toolbar wraps to a single
+     column on small screens. Avoids the fixed `w-200` overflowing the viewport. */
+  .f-filter,
+  .f-filter-sm,
+  .f-filter-md {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  /* Badges: slightly smaller */
+  .badge { font-size: 10px; padding: 1px 6px; }
+
+  /* Larger touch targets */
+  .pagination button { padding: 8px 16px; font-size: 13px; min-height: 36px; }
+  .tab-btn           { padding: 10px 12px; font-size: 12px; min-height: 40px; }
+
+  /* Loading / empty: tighter padding */
+  .loading, .empty { padding: 24px; font-size: 12px; }
+}
+
+
+/* b) Touch devices — hover-less, coarse pointer */
+
+@media (hover: none) and (pointer: coarse) {
+  /* Disable hover effects */
+  tr:hover td { background: none; }
+  .sidebar nav a:hover {
+    background: none;
+    color: var(--text-dim);
+    border-left-color: transparent;
+  }
+  .sidebar nav a.active {
+    background: var(--bg-hover);
+    color: var(--text);
+    border-left-color: var(--accent);
+  }
+
+  /* Larger tap targets for nav links */
+  .sidebar nav a {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Active-state feedback (replaces hover) */
+  .sidebar nav a:active,
+  td.clickable:active,
+  span.clickable:active,
+  button:active { opacity: 0.7; }
+
+  /* Safe-area insets (notch, home indicator) */
+  .sidebar { padding-bottom: env(safe-area-inset-bottom); }
+  .main    { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+}

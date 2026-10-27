@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2024-2026 shdw <contact@resurgamus.com>
+#
+# Constellation — pre-commit hooks (Option A: framework)
+#
+# Activation (one-time, per contributor):
+#   pip install pre-commit  # or in .venv, or via Ansible
+#   pre-commit install
+#
+# Alternative (Option B, no install required):
+#   make hooks-install   # uses scripts/git-hooks/pre-commit (shell + Docker fallback)
+#
+# Both options check the SAME things — keep them in sync:
+#   1. ruff check (lint) on staged Python files
+#   2. ruff format --check on staged Python files
+#   3. detect-secrets vs .secrets.baseline on staged files
+#
+# Skip a hook ad hoc:  SKIP=ruff git commit -m "..."
+# Bypass everything :  git commit --no-verify   (use sparingly, CI will catch)
+
+# Versions are kept in sync with versions.env (RUFF_VERSION, DETECT_SECRETS_VERSION).
+# When bumping here, also bump versions.env and the CI step in .woodpecker/validate.yml.
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.13
+    hooks:
+      - id: ruff
+        name: ruff check (staged python)
+      - id: ruff-format
+        name: ruff format --check (staged python)
+        args: [--check]
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        name: detect-secrets vs .secrets.baseline
+        args:
+          - --baseline
+          - .secrets.baseline
+        exclude: |
+          (?x)^(
+            \.git/.*|
+            env\.example|
+            \.env|
+            tests/.*|
+            .*\.pyc|
+            \.venv/.*|
+            \.ruff_cache/.*|
+            \.pytest_cache/.*|
+            \.coverage|
+            .*\.lock|
+            requirements-dev\.txt|
+            \.secrets\.baseline
+          )$

@@ -1,0 +1,109 @@
+# Stack iso-prod minimaliste pour reproduire le leak de pool DB.
+#
+# Differences avec docker-compose.yml de prod :
+#  - reseaux locaux uniquement (pas de traefik_proxy / observability_net)
+#  - pas de Traefik labels (acces via 127.0.0.1:8000 en local)
+#  - sync-opencve / sync-wazuh / frontend desactives (besoin reseaux externes)
+#  - pool_log_interval=10s pour voir l'etat toutes les 10s au lieu de 60s
+#
+# Usage :
+#   cd local && cp .env.local.example .env.local && docker compose -f docker-compose.local.yml --env-file .env.local up --build
+#
+# Variables d'environnement chargees depuis .env.local (cf .env.local.example)
+
+networks:
+  cmdb_local:
+    driver: bridge
+
+volumes:
+  postgres_data_local:
+
+services:
+  postgres:
+    image: postgres:18-trixie
+    container_name: cmdb_postgres_local
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-cmdb}
+      POSTGRES_USER:     ${POSTGRES_USER:-cmdb}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cmdb_local_pw}
+      # PG18 moved the default PGDATA to /var/lib/postgresql/18/docker —
+      # pin it back so the named volume below stays the data dir.
+      PGDATA: /var/lib/postgresql/data
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=${PG_MAX_CONNECTIONS:-200}"
+      - "-c"
+      - "shared_buffers=${PG_SHARED_BUFFERS:-256MB}"
+      - "-c"
+      - "log_connections=on"
+      - "-c"
+      - "log_disconnections=on"
+      - "-c"
+      - "log_min_messages=warning"
+    volumes:
+      - postgres_data_local:/var/lib/postgresql/data
+      - ../schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    ports:
+      - "127.0.0.1:55434:5432"
+    networks:
+      - cmdb_local
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cmdb} -d ${POSTGRES_DB:-cmdb}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: api/Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.12-slim}
+    container_name: cmdb_api_local
+    restart: unless-stopped
+    environment:
+      DATABASE_URL:     postgresql+asyncpg://${POSTGRES_USER:-cmdb}:${POSTGRES_PASSWORD:-cmdb_local_pw}@postgres:5432/${POSTGRES_DB:-cmdb}
+      SECRET_KEY:       ${API_SECRET_KEY:-local_secret_key_for_iso_prod_testing_only}
+      COLLECT_TOKEN:    ${COLLECT_TOKEN:-local_collect_token_iso_prod}
+      TOKEN_HMAC_KEY:   ${TOKEN_HMAC_KEY:-local_hmac_key_iso_prod_testing}
+      UVICORN_WORKERS:  ${UVICORN_WORKERS:-4}
+      DB_POOL_SIZE:     ${DB_POOL_SIZE:-10}
+      DB_MAX_OVERFLOW:  ${DB_MAX_OVERFLOW:-20}
+      DB_POOL_RECYCLE:  ${DB_POOL_RECYCLE:-300}
+      DB_POOL_TIMEOUT:  ${DB_POOL_TIMEOUT:-10}
+      DB_POOL_LOG_INTERVAL: ${DB_POOL_LOG_INTERVAL:-10}
+      DB_POOL_WARN_FREE: ${DB_POOL_WARN_FREE:-3}
+      DB_ACTIVITY_LOG_INTERVAL: ${DB_ACTIVITY_LOG_INTERVAL:-15}
+      DB_ACTIVITY_SLOW_SECONDS: ${DB_ACTIVITY_SLOW_SECONDS:-5}
+      DB_ACTIVITY_WARN_TOTAL: ${DB_ACTIVITY_WARN_TOTAL:-25}
+      PYTHONDONTWRITEBYTECODE: "1"
+      LOG_LEVEL: "INFO"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks:
+      - cmdb_local
+
+  # Generateur de charge — execute /local/stress.py contre l'API.
+  # Decommente pour activer (necessite que l'API soit sante et seed applique).
+  # stress:
+  #   image: python:3.12-slim
+  #   container_name: cmdb_stress_local
+  #   depends_on:
+  #     - api
+  #   networks:
+  #     - cmdb_local
+  #   command:
+  #     - "sh"
+  #     - "-c"
+  #     - "pip install httpx && python /scripts/stress.py"
+  #   environment:
+  #     CMDB_API: http://api:8000
+  #     CMDB_TOKEN: ${API_SECRET_KEY:-local_secret_key_for_iso_prod_testing_only}
+  #     CONCURRENCY: "20"
+  #   volumes:
+  #     - ./stress.py:/scripts/stress.py:ro

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Copyright (C) 2024-2026 shdw <contact@resurgamus.com> -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Constellation">
+<meta name="mobile-web-app-capable" content="yes">
+<title>CMDB — Constellation</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/tablette.css">
+<link rel="stylesheet" href="/css/mobile.css">
+<!-- License & AI policy — see /LICENSE-AI.md and /.well-known/tdmrep.json -->
+<meta name="author" content="shdw <contact@resurgamus.com>">
+<meta name="copyright" content="(C) 2024-2026 shdw - Constellation - Apache-2.0">
+<meta name="ai-training" content="disallowed; TDM reservation per EU DSM 2019/790 art. 4">
+<meta name="robots" content="noai, noimageai">
+<link rel="license" href="https://www.apache.org/licenses/LICENSE-2.0">
+<link rel="license" href="/LICENSE-AI.md" title="AI training policy">
+<!--
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Constellation",
+  "applicationCategory": "SecurityApplication",
+  "author": { "@type": "Person", "name": "testuser", "email": "contact@resurgamus.com" },
+  "license": "https://www.apache.org/licenses/LICENSE-2.0",
+  "copyrightHolder": { "@type": "Person", "name": "testuser" },
+  "copyrightYear": "2024-2026",
+  "copyrightNotice": "(C) 2024-2026 shdw - Apache-2.0, TDM reservation declared",
+  "usageInfo": "/LICENSE-AI.md",
+  "isAccessibleForFree": true,
+  "isFamilyFriendly": true
+}
+-->
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <button class="sidebar-toggle" data-action="toggleSidebar" title="Toggle menu">&#9776;</button>
+    <h1><canvas id="sidebar-stars"></canvas>CMDB<br><span class="brand-sub"><span class="glow-star glow-l">&#10022;</span>CONSTELLATION<span class="glow-star glow-r">&#10022;</span></span></h1>
+    <nav>
+      <!-- Infra -->
+      <a href="#" data-view="dashboard" class="active"><span class="nav-icon" title="Dashboard"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></svg></span><span class="nav-label">Dashboard</span></a>
+      <a href="#" data-view="heartbeat"><span class="nav-icon" title="Heartbeat"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"/><path d="M3.22 13H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></svg></span><span class="nav-label">Heartbeat</span></a>
+      <a href="#" data-view="nodes"><span class="nav-icon" title="Nodes"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg></span><span class="nav-label">Nodes</span></a>
+      <div class="nav-sep"></div>
+      <!-- Packages (accordion) -->
+      <div class="nav-group" id="nav-group-packages">
+        <button type="button" class="nav-group-header" data-action="toggleNavGroup" data-group="packages">
+          <span class="nav-icon" title="Packages"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V12"/><path d="M20.27 18.27 22 20"/><path d="M21 10.498V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.729l7 4a2 2 0 0 0 2 .001l.98-.559"/><path d="M3.29 7 12 12l8.71-5"/><path d="m7.5 4.27 8.997 5.148"/><circle cx="18.5" cy="16.5" r="2.5"/></svg></span>
+          <span class="nav-label">Packages</span>
+          <span class="nav-badge" id="nav-badge-group-packages" hidden></span>
+          <span class="nav-chevron" aria-hidden="true">▸</span>
+        </button>
+        <div class="nav-group-children">
+          <a href="#" data-view="packages"><span class="nav-icon" title="All packages"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></span><span class="nav-label">All packages</span></a>
+          <a href="#" data-view="updates"><span class="nav-icon" title="Updates"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16h6"/><path d="M19 13v6"/><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/><path d="M16.5 9.4 7.55 4.24"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" x2="12" y1="22" y2="12"/></svg></span><span class="nav-label">Updates</span><span class="nav-badge" id="nav-badge-updates" hidden></span></a>
+          <a href="#" data-view="repositories"><span class="nav-icon" title="OS Repos"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></svg></span><span class="nav-label">OS Repos</span></a>
+        </div>
+      </div>
+      <div class="nav-sep"></div>
+      <!-- Containers (accordion) -->
+      <div class="nav-group" id="nav-group-containers">
+        <button type="button" class="nav-group-header" data-action="toggleNavGroup" data-group="containers">
+          <span class="nav-icon" title="Containers"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 7.7c0-.6-.4-1.2-.8-1.5l-6.3-3.9a1.72 1.72 0 0 0-1.7 0l-10.3 6c-.5.2-.9.8-.9 1.4v6.6c0 .5.4 1.2.8 1.5l6.3 3.9a1.72 1.72 0 0 0 1.7 0l10.3-6c.5-.3.9-1 .9-1.5Z"/><path d="M10 21.9V14L2.1 9.1"/><path d="m10 14 11.9-6.9"/><path d="M14 19.8v-8.1"/><path d="M18 17.5V9.4"/></svg></span>
+          <span class="nav-label">Containers</span>
+          <span class="nav-badge" id="nav-badge-group-containers" hidden></span>
+          <span class="nav-chevron" aria-hidden="true">▸</span>
+        </button>
+        <div class="nav-group-children">
+          <a href="#" data-view="containers"><span class="nav-icon" title="All containers"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 7.7c0-.6-.4-1.2-.8-1.5l-6.3-3.9a1.72 1.72 0 0 0-1.7 0l-10.3 6c-.5.2-.9.8-.9 1.4v6.6c0 .5.4 1.2.8 1.5l6.3 3.9a1.72 1.72 0 0 0 1.7 0l10.3-6c.5-.3.9-1 .9-1.5Z"/><path d="M10 21.9V14L2.1 9.1"/><path d="m10 14 11.9-6.9"/></svg></span><span class="nav-label">All containers</span><span class="nav-badge" id="nav-badge-containers" hidden></span></a>
+          <a href="#" data-view="crepositories"><span class="nav-icon" title="Registries"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 10.189V14"/><path d="M12 2v3"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-8.188-3.639a2 2 0 0 0-1.624 0L3 14a11.6 11.6 0 0 0 2.81 7.76"/><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg></span><span class="nav-label">Registries</span></a>
+        </div>
+      </div>
+      <div class="nav-sep"></div>
+      <!-- Security -->
+      <a href="#" data-view="cves"><span class="nav-icon" title="CVEs"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20v-9"/><path d="M14 7a4 4 0 0 1 4 4v3a6 6 0 0 1-12 0v-3a4 4 0 0 1 4-4z"/><path d="M14.12 3.88 16 2"/><path d="M21 21a4 4 0 0 0-3.81-4"/><path d="M21 5a4 4 0 0 1-3.55 3.97"/><path d="M22 13h-4"/><path d="M3 21a4 4 0 0 1 3.81-4"/><path d="M3 5a4 4 0 0 0 3.55 3.97"/><path d="M6 13H2"/><path d="m8 2 1.88 1.88"/><path d="M9 7.13V6a3 3 0 1 1 6 0v1.13"/></svg></span><span class="nav-label">CVEs</span></a>
+      <a href="#" data-view="exposure"><span class="nav-icon" title="Exposure"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></span><span class="nav-label">Exposure</span></a>
+      <a href="#" data-view="misconf"><span class="nav-icon" title="Misconfigs"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><span class="nav-label">Misconfigs</span></a>
+      <a href="#" data-view="compliance"><span class="nav-icon" title="Compliance"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></span><span class="nav-label">Compliance</span></a>
+      <a href="#" data-view="secrets"><span class="nav-icon" title="Leaks"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="15" r="4"/><circle cx="18" cy="15" r="4"/><path d="M14 15a2 2 0 0 0-2-2 2 2 0 0 0-2 2"/><path d="M2.5 13 5 7c.7-1.3 1.4-2 3-2"/><path d="M21.5 13 19 7c-.7-1.3-1.5-2-3-2"/></svg></span><span class="nav-label">Leaks</span></a>
+      <div class="nav-sep"></div>
+      <!-- Backup -->
+      <a href="#" data-view="backups"><span class="nav-icon" title="Backups"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13v8"/><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="m8 17 4-4 4 4"/></svg></span><span class="nav-label">Backups</span></a>
+      <div class="nav-sep"></div>
+      <!-- CI/CD -->
+      <a href="#" data-view="delivery"><span class="nav-icon" title="Delivery"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 12-9.373 9.373a1 1 0 0 1-3.001-3L12 9"/><path d="m18 15 4-4"/><path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172v-.344a2 2 0 0 0-.586-1.414l-1.657-1.657A6 6 0 0 0 12.516 3H9l1.243 1.243A6 6 0 0 1 12 8.485V10l2 2h1.172a2 2 0 0 1 1.414.586L18.5 14.5"/></svg></span><span class="nav-label">Delivery</span><span class="nav-badge" id="nav-badge-delivery" hidden></span></a>
+      <a href="#" data-view="managers"><span class="nav-icon" title="Registries"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.2 12.27 20 6H4l1.8 6.27a1 1 0 0 0 .95.73h10.5a1 1 0 0 0 .96-.73Z"/><path d="M8 13v9"/><path d="M16 22v-9"/><path d="m9 6 1 7"/><path d="m15 6-1 7"/><path d="M12 6V2"/><path d="M13 2h-2"/></svg></span><span class="nav-label">Registries</span></a>
+      <div class="nav-sep"></div>
+      <!-- System -->
+      <a href="#" data-view="automation"><span class="nav-icon" title="Automation"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg></span><span class="nav-label">Automation</span><span class="nav-badge" id="nav-badge-automation" hidden></span></a>
+      <a href="#" data-view="scheduler"><span class="nav-icon" title="Scheduler"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span><span class="nav-label">Scheduler</span></a>
+      <a href="#" data-view="tokens"><span class="nav-icon" title="Tokens"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg></span><span class="nav-label">Tokens</span></a>
+      <a href="#" data-view="history"><span class="nav-icon" title="History"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg></span><span class="nav-label">History</span></a>
+      <a href="#" data-view="settings"><span class="nav-icon" title="Settings"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg></span><span class="nav-label">Settings</span></a>
+    </nav>
+  </aside>
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+  <main class="main">
+    <div class="mobile-toolbar">
+      <button class="mobile-hamburger" id="mobile-hamburger" data-action="toggleMobileMenu" aria-label="Open menu">&#9776;</button>
+      <button class="mobile-nav-toggle" data-action="toggleMobileNavMode" aria-label="Switch nav mode" title="Icons / Menu">
+        <svg class="icon-grid" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <svg class="icon-list" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="search" placeholder="Search nodes, packages, containers, CVEs...">
+      <input type="text" id="search-version" placeholder="Version / Tag..." class="hidden">
+    </div>
+    <div id="filters" class="hidden mb-16 gap-8 flex-wrap">
+      <select id="filter-type" class="f-filter-md">
+        <option value="">All types</option>
+        <option value="bare_metal">Bare Metal</option>
+        <option value="vm">VM</option>
+        <option value="host">Host</option>
+        <option value="container">Container</option>
+        <option value="bastion">Bastion</option>
+        <option value="workstation">Workstation</option>
+      </select>
+      <select id="filter-severity" class="f-filter-md">
+        <option value="">All severities</option>
+        <option value="critical">Critical</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+      </select>
+      <select id="filter-target-type" class="f-filter-md">
+        <option value="">All targets</option>
+        <option value="package">Package</option>
+        <option value="container">Container</option>
+      </select>
+      <select id="filter-source" class="f-filter-md">
+        <option value="">All sources</option>
+        <option value="trivy">Trivy</option>
+        <option value="wazuh">Wazuh</option>
+      </select>
+      <select id="filter-kev" class="f-filter-md">
+        <option value="">All CVEs</option>
+        <option value="true" class="opt-kev">KEV only</option>
+        <option value="false">Non-KEV</option>
+      </select>
+      <select id="filter-workflow" class="f-filter-md">
+        <option value="">All workflow</option>
+        <option value="open">open</option>
+        <option value="acknowledged">acknowledged</option>
+        <option value="in_progress">in progress</option>
+        <option value="mitigated" class="text-green">mitigated</option>
+        <option value="resolved" class="text-green">resolved</option>
+        <option value="false_positive">false positive</option>
+        <option value="accepted_risk">accepted risk</option>
+      </select>
+      <select id="filter-sort" class="f-filter-md">
+        <option value="score">Sort: Score</option>
+        <option value="cvss">Sort: CVSS</option>
+        <option value="severity">Sort: Severity</option>
+        <option value="exploited">Sort: KEV first</option>
+        <option value="detected_at">Sort: Recent</option>
+      </select>
+      <input type="text" id="filter-node" placeholder="Search node..." class="f-node-filter">
+      <input type="text" id="filter-package" placeholder="Filter package..." class="f-node-filter">
+      <input type="text" id="filter-table" placeholder="Filter table..." class="f-node-filter">
+    </div>
+    <div id="content">
+      <div class="loading">Loading...</div>
+    </div>
+  </main>
+
+  <div class="detail-overlay" id="detail">
+    <button class="expand-btn" data-action="toggleFullscreen" title="Toggle fullscreen">⛶</button>
+    <button class="close-btn" data-action="closeDetail">&times;</button>
+    <div id="detail-content"></div>
+  </div>
+</div>
+
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>

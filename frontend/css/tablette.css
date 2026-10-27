@@ -1,0 +1,152 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Copyright (C) 2024-2026 shdw <contact@resurgamus.com> */
+/* Tablet stylesheet — applies below 768px (tablets + mobile landscape).
+
+   Layout changes vs. desktop:
+     - Sidebar slides in as overlay instead of always-visible
+     - Mobile toolbar becomes visible
+     - Main area reclaims the sidebar width
+     - data-mobile-nav="icons" turns sidebar into a persistent icon bar
+
+   Component tweaks: search bar stacks, stats grid → 2 columns, tab bar
+   scrolls horizontally, tables tighter padding, detail panel fullscreen. */
+
+@media (max-width: 768px) {
+
+  /* Sidebar: slide-in overlay */
+  .sidebar,
+  .sidebar.collapsed {
+    width: 220px;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 60;
+  }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .sidebar.mobile-open ~ .sidebar-backdrop { display: block; }
+
+  /* Open state: force full labels (override collapsed) */
+  .sidebar.mobile-open h1                               { display: block; }
+  .sidebar.mobile-open nav a .nav-label                 { display: inline; }
+  .sidebar.mobile-open nav a .nav-icon                  { display: none; }
+  .sidebar.mobile-open .nav-group-header .nav-label     { display: inline; }
+  .sidebar.mobile-open .nav-group-header .nav-icon      { display: none; }
+  .sidebar.mobile-open nav a {
+    padding: 12px 16px;
+    font-size: 13px;
+    text-align: left;
+    border-left: 2px solid transparent;
+  }
+
+  /* Hide desktop toggle, reveal mobile toolbar */
+  .sidebar-toggle { display: none; }
+  .mobile-toolbar { display: flex; }
+
+  /* Main area reclaims sidebar space */
+  .main { margin-left: 0 !important; padding: 12px; }
+
+
+  /* ── Icons-mode: persistent icon bar
+     Mirror of .sidebar.collapsed rules in style.css §6c — see note there. */
+  [data-mobile-nav="icons"] .sidebar,
+  [data-mobile-nav="icons"] .sidebar.collapsed {
+    width: 48px;
+    transform: translateX(0);
+  }
+  [data-mobile-nav="icons"] .sidebar h1               { display: none; }
+  [data-mobile-nav="icons"] .sidebar nav a .nav-label { display: none; }
+  [data-mobile-nav="icons"] .sidebar nav a .nav-icon  { display: inline; }
+  [data-mobile-nav="icons"] .sidebar nav a {
+    display: flex; justify-content: center; align-items: center;
+    position: relative;
+    padding: 10px 0; min-height: 40px;
+    font-size: 16px; border-left: none;
+  }
+  [data-mobile-nav="icons"] .sidebar .sidebar-toggle { display: none; }
+  [data-mobile-nav="icons"] .main                    { margin-left: 48px !important; }
+  [data-mobile-nav="icons"] .mobile-hamburger        { display: none; }
+
+  /* Icons-mode accordion: child links hidden, group header becomes icon */
+  [data-mobile-nav="icons"] .nav-group              { position: relative; }
+  [data-mobile-nav="icons"] .nav-group-children     { display: none !important; }
+  [data-mobile-nav="icons"] .nav-chevron            { display: none; }
+  [data-mobile-nav="icons"] .nav-group-header {
+    display: flex; justify-content: center; align-items: center;
+    padding: 10px 0; min-height: 40px; font-size: 16px;
+    text-align: center; border-left: none;
+  }
+  [data-mobile-nav="icons"] .nav-group-header .nav-label { display: none; }
+  [data-mobile-nav="icons"] .nav-group-header .nav-icon  { display: inline; }
+
+  /* Popover: children expand inline below the group icon */
+  [data-mobile-nav="icons"] .nav-group.popover-open > .nav-group-children {
+    display: flex !important;
+    flex-direction: column;
+    background: rgba(255, 255, 255, 0.03);
+    border-left: 2px solid var(--accent);
+  }
+  [data-mobile-nav="icons"] .nav-group.popover-open > .nav-group-children > a {
+    padding: 10px 0 !important;
+    justify-content: center;
+    min-height: 0;
+  }
+  [data-mobile-nav="icons"] .nav-group.popover-open > .nav-group-children > a .nav-label { display: none !important; }
+  [data-mobile-nav="icons"] .nav-group.popover-open > .nav-group-children > a .nav-icon  { display: inline-flex !important; }
+
+  /* Sparks in icon bar → positioned as dot overlay */
+  [data-mobile-nav="icons"] .sidebar .nav-spark,
+  [data-mobile-nav="icons"] .sidebar .nav-badge {
+    position: absolute;
+    top: 4px; right: 4px;
+    margin-left: 0;
+    width: 4px; height: 4px;
+  }
+
+
+  /* Component tweaks */
+
+  /* Search bar stacks */
+  .search-bar              { flex-direction: column; align-items: stretch; }
+  .search-bar input        { max-width: none; flex-basis: auto; }
+  .search-bar #search-version { flex-basis: auto; }
+
+  /* Stats cards: 2 columns */
+  .stats                  { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .stat-card              { padding: 12px; }
+  .stat-card .value       { font-size: 22px; }
+
+  /* Tab bar: horizontal scroll */
+  .tab-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+  .tab-btn { white-space: nowrap; flex-shrink: 0; padding: 8px 12px; }
+
+  /* Tables: tighter padding */
+  th { padding: 8px 10px; font-size: 10px; }
+  td { padding: 6px 10px; font-size: 12px; }
+
+  /* Detail panel: always fullscreen */
+  .detail-overlay.side-panel {
+    left: 0; width: 100%; max-width: 100%;
+    border-left: none; box-shadow: none;
+    padding: 16px;
+  }
+  .detail-overlay             { padding: 16px; }
+  .detail-overlay .expand-btn { display: none; }
+  .detail-grid                { gap: 4px 10px; font-size: 11px; }
+
+  /* Pagination wraps */
+  .pagination { flex-wrap: wrap; gap: 8px; }
+
+  /* Toast: full width */
+  .toast-container { left: 16px; right: 16px; }
+  .toast           { max-width: none; }
+
+  /* Filters row */
+  #filters                      { gap: 6px !important; }
+  #filters select, #filters input { font-size: 11px; padding: 5px 8px; }
+
+  /* Token matrix: smaller text + shorter vertical headers */
+  .token-matrix                { font-size: 10px; }
+  .token-matrix th.scope-header { height: 60px; }
+
+  /* Heatmap: tighter gaps */
+  .heatmap-grid { gap: 6px; }
+}
