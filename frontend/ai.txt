@@ -4,7 +4,7 @@
 # Project: Constellation (CMDB)
 # Copyright (C) 2024-2026 shdw <contact@resurgamus.com>
 # License: Apache-2.0
-# Full policy: /LICENSE-AI.md
+# Full policy: /NOTICE
 
 User-Agent: *
 Disallow: /

@@ -68,26 +68,12 @@ steps:
       # Dependency audit
       - echo "[validate] Auditing dependencies..."
       - |
-        pip-audit -r api/requirements.lock --format json --output /tmp/audit.json 2>/dev/null || true
-        if [ -f /tmp/audit.json ]; then
-          critical=$$(python3 -c "
-        import json
-        r = json.load(open('/tmp/audit.json'))
-        count = 0
-        for d in r.get('dependencies', []):
-            for v in d.get('vulns', []):
-                if v.get('fix_versions'):
-                    count += 1
-        print(count)
-        " 2>/dev/null || echo "0")
-          echo "[audit] Fixable CVEs: $$critical"
-          if [ "$$critical" -gt 0 ]; then
-            pip-audit -r api/requirements.lock 2>/dev/null || true
-            echo "[FAIL] $$critical fixable CVE(s) in dependencies"
-            exit 1
-          fi
-        fi
-        echo "[OK] Dependency audit clean"
+        set -e
+        for lockfile in api/requirements.lock requirements-dev.txt tools/requirements.lock; do
+          echo "[audit] $$lockfile"
+          pip-audit --no-deps --disable-pip -r "$$lockfile"
+        done
+        echo "[OK] All dependency audits clean"
       # Secrets scan — baseline-gated (blocks merge on any NEW finding vs .secrets.baseline)
       - echo "[validate] Scanning for leaked secrets (baseline-gated)..."
       - |

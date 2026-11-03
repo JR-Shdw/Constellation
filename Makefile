@@ -129,15 +129,15 @@ cron-install: ## Installer les crons Ansible (collect, trivy, misconf, drift, ba
 	@echo "Installing CMDB Ansible cron jobs..."
 	@(crontab -l 2>/dev/null | grep -v 'cmdb.*ansible-cron'; \
 	  echo "# CMDB Ansible — collecte inventaire (daily 02:17)"; \
-	  echo "17 2 * * * /home/shdw/dev/tools/cmdb/scripts/ansible-cron.sh collect.yml"; \
+	  echo "17 2 * * * /home/user/dev/tools/cmdb/scripts/ansible-cron.sh collect.yml"; \
 	  echo "# CMDB Ansible — scan Trivy CVE (daily 03:07)"; \
-	  echo "7 3 * * * /home/shdw/dev/tools/cmdb/scripts/ansible-cron.sh scan_trivy.yml"; \
+	  echo "7 3 * * * /home/user/dev/tools/cmdb/scripts/ansible-cron.sh scan_trivy.yml"; \
 	  echo "# CMDB Ansible — scan misconfigurations (daily 04:23)"; \
-	  echo "23 4 * * * /home/shdw/dev/tools/cmdb/scripts/ansible-cron.sh scan_misconf.yml"; \
+	  echo "23 4 * * * /home/user/dev/tools/cmdb/scripts/ansible-cron.sh scan_misconf.yml"; \
 	  echo "# CMDB Ansible — drift detection (daily 05:11)"; \
-	  echo "11 5 * * * /home/shdw/dev/tools/cmdb/scripts/ansible-cron.sh check_drift.yml"; \
+	  echo "11 5 * * * /home/user/dev/tools/cmdb/scripts/ansible-cron.sh check_drift.yml"; \
 	  echo "# CMDB Ansible — collecte backup logs (daily 06:43)"; \
-	  echo "43 6 * * * /home/shdw/dev/tools/cmdb/scripts/ansible-cron.sh collect_backup_logs.yml"; \
+	  echo "43 6 * * * /home/user/dev/tools/cmdb/scripts/ansible-cron.sh collect_backup_logs.yml"; \
 	) | crontab -
 	@echo "Done. Verify with: crontab -l"
 

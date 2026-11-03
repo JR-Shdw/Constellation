@@ -17,7 +17,12 @@ COPY sw.js /usr/share/nginx/html/sw.js
 
 EXPOSE 80
 
-RUN apk add --no-cache curl
+# Fail the build unless the Brotli, curl and Expat security fixes are present.
+RUN apk add --no-cache \
+    'brotli-libs>=1.2.1-r0' \
+    'curl>=8.23.0-r0' \
+    'libcurl>=8.23.0-r0' \
+    'libexpat>=2.10.0-r0'
 
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
     CMD curl -so /dev/null http://localhost/ || exit 1

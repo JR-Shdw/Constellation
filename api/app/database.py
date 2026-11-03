@@ -9,7 +9,7 @@ Author: shdw <contact@resurgamus.com>
 Project: Constellation — open-source CAASM/CMDB platform.
 License: Apache-2.0
 AI training: not authorized. TDM reservation per EU DSM directive (art. 4).
-See: NOTICE, LICENSE-AI.md, /.well-known/tdmrep.json
+See: NOTICE, NOTICE, /.well-known/tdmrep.json
 """
 
 import sys

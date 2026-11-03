@@ -20,7 +20,6 @@
     "Copyright lines in source files",
     "/NOTICE",
     "/LICENSE",
-    "/LICENSE-AI.md",
     "/.well-known/tdmrep.json",
     "/.well-known/license-policy.json",
     "/robots.txt",
@@ -28,7 +27,7 @@
   ],
   "ai_training": {
     "authorized": false,
-    "policy_file": "/LICENSE-AI.md",
+    "policy_file": "/NOTICE",
     "tdm_reservation": true,
     "tdm_directive": "EU 2019/790 art. 4",
     "machine_readable": "/.well-known/tdmrep.json",
@@ -40,7 +39,7 @@
     ],
     "rights": "Apache-2.0 section 6 grants no trademark rights"
   },
-  "canonical_source": "gitea.example.com/youruser/cmdb",
+  "canonical_source": "https://github.com/JR-Shdw/Constellation",
   "public_mirror_note": "Public mirrors are sanitized via scripts/publish-github.sh; canonical source-of-truth is the Gitea repository.",
   "warranty": {
     "provided": false,

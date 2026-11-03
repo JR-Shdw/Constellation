@@ -1,7 +1,7 @@
 # Constellation (CMDB)
 # Copyright (C) 2024-2026 shdw <contact@resurgamus.com>
 # Licensed under Apache-2.0. AI training not consented to (TDM reservation).
-# See /LICENSE-AI.md and /.well-known/tdmrep.json for full policy.
+# See /NOTICE and /.well-known/tdmrep.json for full policy.
 
 # === AI / ML training crawlers — DISALLOWED ===
 

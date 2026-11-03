@@ -5,7 +5,7 @@
 # Copyright (C) 2024-2026 shdw <contact@resurgamus.com>
 # -----------------------------------------------------------------------------
 # Constellation - (c) 2024-2026 shdw <contact@resurgamus.com> - Apache-2.0
-# Self-hosted CAASM/CMDB platform - No AI training license - see LICENSE-AI.md
+# Self-hosted CAASM/CMDB platform - No AI training license - see NOTICE
 # -----------------------------------------------------------------------------
 """Constellation API entry point - FastAPI app with lifespan migrations.
 
@@ -13,7 +13,7 @@ Author: shdw <contact@resurgamus.com>
 Project: Constellation - open-source CAASM/CMDB platform.
 License: Apache-2.0
 AI training: not authorized. TDM reservation per EU DSM directive (art. 4).
-See: NOTICE, LICENSE-AI.md, /.well-known/tdmrep.json
+See: NOTICE, NOTICE, /.well-known/tdmrep.json
 """
 
 import logging

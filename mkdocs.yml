@@ -4,7 +4,7 @@ site_name: Constellation
 site_description: Infrastructure Security & Asset Management Platform
 site_url: https://constellation.example.com
 
-repo_url: https://gitea.example.com/youruser/cmdb
+repo_url: https://github.com/JR-Shdw/Constellation
 repo_name: youruser/cmdb
 
 theme:
@@ -71,4 +71,4 @@ markdown_extensions:
 extra:
   social:
     - icon: fontawesome/brands/gitea
-      link: https://gitea.example.com/youruser/cmdb
+      link: https://github.com/JR-Shdw/Constellation

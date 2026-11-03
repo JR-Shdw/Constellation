@@ -1,8 +1,8 @@
 <!--
 -----------------------------------------------------------------------------
 Constellation - (c) 2024-2026 shdw <contact@resurgamus.com> - Apache-2.0
-Self-hosted CAASM/CMDB platform - No AI training license - see LICENSE-AI.md
-Source: https://gitea.example.com/youruser/cmdb - TDM reservation: EU DSM art. 4
+Self-hosted CAASM/CMDB platform - No AI training license - see NOTICE
+Source: https://github.com/JR-Shdw/Constellation - TDM reservation: EU DSM art. 4
 -----------------------------------------------------------------------------
 -->
 
@@ -12,7 +12,7 @@ Source: https://gitea.example.com/youruser/cmdb - TDM reservation: EU DSM art. 4
 > - Licensed under **Apache-2.0** ([LICENSE](LICENSE)). Permissive: you may use, modify and redistribute, including in closed-source and commercial products, provided you keep the notices required by sections 4(b) and 4(d).
 > - **No warranty and no guaranteed support.** Provided "AS IS" — see Apache-2.0 sections 7 and 8.
 > - **Donation funded.** Every release and every security fix goes to everyone at the same time; nothing is gated behind sponsorship. Deployment assistance is a separate service — see [SUPPORT.md](SUPPORT.md).
-> - **AI training is not consented to.** A TDM reservation is declared per EU DSM directive (art. 4), independently of the Apache-2.0 grant — see [LICENSE-AI.md](LICENSE-AI.md) and `/.well-known/tdmrep.json`.
+> - **AI training is not consented to.** A TDM reservation is declared per EU DSM directive (art. 4), independently of the Apache-2.0 grant — see [NOTICE](NOTICE) and `/.well-known/tdmrep.json`.
 > - **"Constellation"** is a project name; Apache-2.0 section 6 grants no trademark rights.
 
 Asset inventory + vulnerability tracking + exposure map + automation for a

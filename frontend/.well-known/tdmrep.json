@@ -2,7 +2,7 @@
   {
     "location": "/",
     "tdm-reservation": 1,
-    "tdm-policy": "/LICENSE-AI.md"
+    "tdm-policy": "/NOTICE"
   },
   {
     "location": "/.well-known/license-policy.json",
