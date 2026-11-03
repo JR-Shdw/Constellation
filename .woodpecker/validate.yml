@@ -122,6 +122,8 @@ steps:
       TEST_DATABASE_URL: "postgresql://cmdb_test:cmdb_test@postgres-test:5432/cmdb_test"
       PYTHONUNBUFFERED: "1"
     commands:
+      # The publication regression executes the real git-archive exporter.
+      - apt-get update -qq && apt-get install -y --no-install-recommends git >/dev/null
       # SLSA: pinned CVE-fixed pip + hash-verified runtime and test deps only.
       - pip install --no-cache-dir "pip==26.1.2"
       - pip install --no-cache-dir --require-hashes -r api/requirements.lock -r requirements-dev.txt
