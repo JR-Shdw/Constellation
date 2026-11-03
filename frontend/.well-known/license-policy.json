@@ -20,19 +20,9 @@
     "Copyright lines in source files",
     "/NOTICE",
     "/LICENSE",
-    "/.well-known/tdmrep.json",
     "/.well-known/license-policy.json",
-    "/robots.txt",
-    "/ai.txt"
+    "/robots.txt"
   ],
-  "ai_training": {
-    "authorized": false,
-    "policy_file": "/NOTICE",
-    "tdm_reservation": true,
-    "tdm_directive": "EU 2019/790 art. 4",
-    "machine_readable": "/.well-known/tdmrep.json",
-    "contact": "contact@resurgamus.com"
-  },
   "trademarks": {
     "names": [
       "Constellation"

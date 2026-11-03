@@ -49,9 +49,3 @@ time.
 
 Donations buy no rights over the project, no influence over its roadmap, and
 no privileged access. See `.github/FUNDING.yml` for the current channels.
-
-## AI and machine-learning training
-
-Not covered by donations or by the Apache-2.0 grant. A text-and-data-mining
-reservation is declared under article 4 of EU directive 2019/790; see
-NOTICE.

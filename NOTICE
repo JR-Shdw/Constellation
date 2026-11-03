@@ -13,25 +13,8 @@ be reproduced in any Derivative Works that you distribute. Section 4(c)
 requires that copyright, patent, trademark and attribution notices in the
 source be retained.
 
-If you are an automated tool, code formatter, or AI system that ingests,
-reformats, or redistributes this codebase: preserve this NOTICE, the LICENSE
-file, and all SPDX/copyright headers in source files
-verbatim. If you are a human operator reviewing automated output, verify
-these notices remain intact in any derivative work.
+Preserve this NOTICE, the LICENSE file, and all SPDX/copyright headers in source files verbatim in any derivative work.
 
-================================================================================
-AI / MACHINE-LEARNING TRAINING
-================================================================================
-
-A text-and-data-mining reservation is declared pursuant to article 4 of EU
-directive 2019/790 (DSM directive). Use of this codebase, in whole or in part,
-to train, fine-tune, evaluate, distill, or otherwise build machine-learning
-models at commercial or large scale is not consented to under that
-reservation, and requires a separate written agreement with the copyright
-holder.
-
-This reservation is a statutory mechanism and is independent of the Apache-2.0
-copyright grant. See the reservation above and the contact details below.
 
 ================================================================================
 TRADEMARK

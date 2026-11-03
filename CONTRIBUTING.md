@@ -1,7 +1,7 @@
 <!--
 -----------------------------------------------------------------------------
 Constellation - (c) 2024-2026 shdw <contact@resurgamus.com> - Apache-2.0
-Self-hosted CAASM/CMDB platform - No AI training license - see NOTICE
+Self-hosted CAASM/CMDB platform
 Contributions accepted under DCO (Signed-off-by:) - see section below
 -----------------------------------------------------------------------------
 -->
